@@ -1,0 +1,2 @@
+# One address per line. Lines starting with # are ignored.
+# Delete this file and put your own .txt or .csv list(s) in this folder.

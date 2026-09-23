@@ -84,8 +84,17 @@ def _read_csv(path: Path) -> list[tuple[int, str]]:
     return values
 
 
+def list_files(folder: str | Path) -> list[Path]:
+    """The .txt and .csv files directly inside a folder, sorted by name."""
+    return sorted(p for p in Path(folder).iterdir()
+                  if p.is_file() and p.suffix.lower() in (".txt", ".csv"))
+
+
 def load_emails(path: str | Path) -> LoadResult:
+    """Load one .txt/.csv file, or every .txt/.csv file in a folder."""
     path = Path(path)
-    if path.suffix.lower() == ".csv":
-        return _collect(_read_csv(path))
-    return _collect(_read_txt(path))
+    files = list_files(path) if path.is_dir() else [path]
+    values: list[tuple[int, str]] = []
+    for f in files:
+        values += _read_csv(f) if f.suffix.lower() == ".csv" else _read_txt(f)
+    return _collect(values)

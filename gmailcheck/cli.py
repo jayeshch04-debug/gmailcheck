@@ -7,8 +7,9 @@ import smtplib
 import sys
 import time
 from datetime import timedelta
+from pathlib import Path
 
-from . import __version__, bounces, checker, config, export, imap, inputs
+from . import __version__, bounces, checker, config, export, folder, imap, inputs
 from .sender import SmtpSender, build_message, throttle
 from .state import (BOUNCED, FORWARDING, NOT_RECEIVED, PENDING, SENT, State,
                     new_token)
@@ -228,9 +229,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--env", default=".env", help="env file to load (default: %(default)s)")
     sub = p.add_subparsers(dest="command", required=True)
 
-    def send_opts(sp: argparse.ArgumentParser, input_required: bool) -> None:
-        sp.add_argument("input", nargs=None if input_required else "?",
-                        help="addresses as .txt (one per line) or .csv")
+    def send_opts(sp: argparse.ArgumentParser, input_required: bool | None) -> None:
+        if input_required is not None:
+            sp.add_argument("input", nargs=None if input_required else "?",
+                            help="addresses as .txt (one per line) or .csv, or a folder of them")
         sp.add_argument("--smtp-preset", choices=sorted(config.SMTP_PRESETS),
                         help="fill SMTP host/port/security (overrides SMTP_PRESET)")
         sp.add_argument("--delay", type=float, default=3.0,
@@ -273,22 +275,80 @@ def build_parser() -> argparse.ArgumentParser:
     export_opts(sp)
     sp.set_defaults(func=do_export)
 
+    def wait_opts(sp: argparse.ArgumentParser) -> None:
+        sp.add_argument("--wait", type=int, default=900,
+                        help="seconds to wait for forwarded mail after sending (default: %(default)s)")
+        sp.add_argument("--interval", type=int, default=60,
+                        help="seconds between checks while waiting (default: %(default)s)")
+
     sp = sub.add_parser("run", help="send, wait for arrivals, then export")
     send_opts(sp, input_required=True)
     check_opts(sp)
     export_opts(sp)
-    sp.add_argument("--wait", type=int, default=900,
-                    help="seconds to wait for forwarded mail after sending (default: %(default)s)")
-    sp.add_argument("--interval", type=int, default=60,
-                    help="seconds between checks while waiting (default: %(default)s)")
+    wait_opts(sp)
     sp.set_defaults(func=do_run)
+
+    sp = sub.add_parser("folder", help="run using the emails/, success/ and failed/ folders "
+                                       "and accounts.csv (what a double-click does)")
+    sp.add_argument("--dir", help="the working folder (default: next to the program)")
+    send_opts(sp, input_required=None)
+    check_opts(sp)
+    wait_opts(sp)
+    sp.set_defaults(func=do_folder, format=None)
     return p
 
 
+def prepare_folder(args: argparse.Namespace) -> bool:
+    """Point the run at the folder layout. Returns False if setup is incomplete."""
+    base = Path(args.dir).resolve() if args.dir else folder.app_dir()
+    log(f"Working folder: {base}")
+    problems = folder.prepare(base)
+    if problems:
+        for p in problems:
+            log(f"  - {p}")
+        log("Then run it again.")
+        return False
+    folder.apply_accounts(folder.load_accounts(base / folder.ACCOUNTS_FILE))
+    args.base = base
+    args.db = str(base / "data" / "gmailcheck.db")
+    args.input = str(base / "emails")
+    args.output = str(base / "success" / "forwarding.csv")
+    args.failed = str(base / "failed" / "not_forwarding.csv")
+    return True
+
+
+def do_folder(args: argparse.Namespace, st: State) -> int:
+    rc = do_run(args, st)
+    if rc == 0:
+        txt = args.base / "success" / "forwarding.txt"
+        export.write(st.by_status(FORWARDING), txt, "txt")
+        log(f"Wrote {txt}")
+    return rc
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    config.load_dotenv(args.env)
+    if argv is None:
+        argv = sys.argv[1:]
+    # Double-clicked (no arguments): run in folder mode and keep the window open.
+    pause = not argv
+    args = build_parser().parse_args(argv or ["folder"])
     try:
+        return _main(args)
+    finally:
+        if pause:
+            try:
+                input("\nPress Enter to close...")
+            except (EOFError, KeyboardInterrupt):
+                pass
+
+
+def _main(args: argparse.Namespace) -> int:
+    try:
+        if args.command == "folder":
+            if not prepare_folder(args):
+                return 1
+        else:
+            config.load_dotenv(args.env)
         with State(args.db) as st:
             return args.func(args, st)
     except (config.ConfigError, imap.ImapError) as exc:
@@ -297,6 +357,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         log("\nInterrupted; progress is saved in the state database.")
         return 130
+    except Exception as exc:  # keep the message visible when double-clicked
+        log(f"unexpected error: {type(exc).__name__}: {exc}")
+        return 1
 
 
 if __name__ == "__main__":

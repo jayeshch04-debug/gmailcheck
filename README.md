@@ -6,6 +6,24 @@ For each address it sends a short test email with a unique reference (`GMC-XXXXX
 
 It uses only the Python standard library (Python 3.10 or newer).
 
+## Windows .exe (double-click, folder based)
+
+The **Build Windows exe** GitHub Action builds `gmailcheck.exe` with PyInstaller on every push. Download the `GmailCheck-windows` artifact from the run. Push a `v*` tag and the zip is also attached to a release. The download is a ready-to-use folder:
+
+```
+GmailCheck/
+  gmailcheck.exe     double-click to run
+  accounts.csv       role,email,app_password,smtp_host,smtp_port,imap_host  (master + sender rows)
+  emails/            your .txt / .csv lists
+  success/           forwarding.csv, forwarding.txt   (written by the program)
+  failed/            not_forwarding.csv               (written by the program)
+  README.txt         step-by-step instructions
+```
+
+When you double-click it (or run `gmailcheck folder`), it sends up to the daily cap, waits for arrivals, and writes `success/` and `failed/`. Run it again on later days to work through a long list. Progress is kept in `data/`. See [`packaging/README.txt`](packaging/README.txt) for the full instructions.
+
+To build it yourself on Windows: `pip install pyinstaller && pyinstaller --onefile --console --name gmailcheck launcher.py`.
+
 ## How it decides
 
 | status         | meaning |
