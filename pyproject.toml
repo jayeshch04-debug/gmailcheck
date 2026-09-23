@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmailcheck"
+version = "0.1.0"
+description = "Verify which Gmail addresses still forward to a master mailbox."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+gmailcheck = "gmailcheck.cli:main"
+
+[tool.setuptools]
+packages = ["gmailcheck"]

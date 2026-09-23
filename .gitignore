@@ -1,0 +1,10 @@
+.env
+*.db
+success.*
+failed.*
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
