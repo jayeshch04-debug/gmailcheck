@@ -75,13 +75,18 @@ def parse_bounce(raw: bytes) -> Bounce | None:
     return Bounce(tokens=tokens, recipients=recipients, reason=reason or subject or "bounced")
 
 
-def scan_bounces(conn: imaplib.IMAP4, since: datetime) -> list[Bounce]:
+def scan_bounces(conn: imaplib.IMAP4, since: datetime,
+                 seen: set[bytes] | None = None) -> list[Bounce]:
+    """Parse bounces since `since`. UIDs in `seen` are skipped, and new ones added to it."""
     roles = imap.special_folders(conn)
     mailbox = roles.get("\\All", "INBOX")
     if not imap.select(conn, mailbox, readonly=True):
         return []
     uids = imap.uid_search(conn, "SINCE", imap.search_since(since),
                            "OR", "FROM", '"mailer-daemon"', "FROM", '"postmaster"')
+    if seen is not None:
+        uids = [u for u in uids if u not in seen]
+        seen.update(uids)
     bounces = []
     for _uid, raw in imap.uid_fetch(conn, uids, "(BODY.PEEK[])", batch=50):
         bounce = parse_bounce(raw)

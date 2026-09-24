@@ -72,9 +72,8 @@ def test_folder_run_end_to_end(tmp_path, monkeypatch):
             return FakeIMAP({"INBOX": []})
         with State(str(tmp_path / "data" / "gmailcheck.db")) as st:
             tok = {r.email: r.token for r in st.all()}
-        return FakeIMAP({"[Gmail]/All Mail": [forwarded(tok["one@gmail.com"], "one@gmail.com"),
-                                               forwarded(tok["three@gmail.com"], "three@gmail.com")]},
-                        roles={"\\All": "[Gmail]/All Mail"})
+        mails = [forwarded(tok[e], e) for e in ("one@gmail.com", "three@gmail.com") if e in tok]
+        return FakeIMAP({"[Gmail]/All Mail": mails}, roles={"\\All": "[Gmail]/All Mail"})
     monkeypatch.setattr(imap, "connect", fake_connect)
 
     assert cli.main(["folder", "--dir", str(tmp_path), "--delay", "0",

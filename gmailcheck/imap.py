@@ -20,7 +20,7 @@ class ImapError(Exception):
 
 def connect(cfg: ImapConfig) -> imaplib.IMAP4:
     try:
-        conn = imaplib.IMAP4_SSL(cfg.host, cfg.port, timeout=60)
+        conn = imaplib.IMAP4_SSL(cfg.host, cfg.port, timeout=30)
         conn.login(cfg.user, cfg.password)
     except imaplib.IMAP4.error as exc:
         raise ImapError(f"IMAP login to {cfg.user} failed: {exc}") from exc

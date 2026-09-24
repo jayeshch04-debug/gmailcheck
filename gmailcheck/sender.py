@@ -83,9 +83,9 @@ class SmtpSender:
 def _connect(cfg: SmtpConfig) -> smtplib.SMTP:
     context = ssl.create_default_context()
     if cfg.security == "ssl":
-        conn: smtplib.SMTP = smtplib.SMTP_SSL(cfg.host, cfg.port, context=context, timeout=60)
+        conn: smtplib.SMTP = smtplib.SMTP_SSL(cfg.host, cfg.port, context=context, timeout=20)
     else:
-        conn = smtplib.SMTP(cfg.host, cfg.port, timeout=60)
+        conn = smtplib.SMTP(cfg.host, cfg.port, timeout=20)
         conn.ehlo()
         if cfg.security == "starttls":
             conn.starttls(context=context)

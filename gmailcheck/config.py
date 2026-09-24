@@ -109,6 +109,11 @@ def master_imap_config() -> ImapConfig:
     return _imap("IMAP")
 
 
+def disable_bounces() -> None:
+    os.environ.pop("BOUNCE_IMAP_USER", None)
+    os.environ.pop("BOUNCE_IMAP_PASS", None)
+
+
 def bounce_imap_config() -> ImapConfig | None:
     """IMAP access to the sender mailbox for bounce detection; None if not configured."""
     cfg = _imap("BOUNCE_IMAP")

@@ -13,14 +13,14 @@ The **Build Windows exe** GitHub Action builds `gmailcheck.exe` with PyInstaller
 ```
 GmailCheck/
   gmailcheck.exe     double-click to run
-  accounts.csv       role,email,app_password,smtp_host,smtp_port,imap_host  (master + sender rows)
+  accounts.csv       role,email,app_password  (a master row and a sender row)
   emails/            your .txt / .csv lists
   success/           forwarding.csv, forwarding.txt   (written by the program)
-  failed/            not_forwarding.csv               (written by the program)
+  failed/            not_forwarding.csv, pending.csv  (written by the program)
   README.txt         step-by-step instructions
 ```
 
-When you double-click it (or run `gmailcheck folder`), it sends up to the daily cap, waits for arrivals, and writes `success/` and `failed/`. Run it again on later days to work through a long list. Progress is kept in `data/`. See [`packaging/README.txt`](packaging/README.txt) for the full instructions.
+When you double-click it (or run `gmailcheck folder`), it first checks the SMTP/IMAP connections and logins. If port 587 times out it falls back to 465. It then sends in batches of 25 (`--batch-size`), checks the master inbox after each batch, pauses 15s (`--batch-pause`), and keeps `success/` and `failed/` up to date as it goes. `gmailcheck test` only runs the connection check. Run it again on later days to work through a long list. Progress is kept in `data/`. See [`packaging/README.txt`](packaging/README.txt) for the full instructions.
 
 To build it yourself on Windows: `pip install pyinstaller && pyinstaller --onefile --console --name gmailcheck launcher.py`.
 

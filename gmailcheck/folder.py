@@ -5,7 +5,7 @@
       accounts.csv        master + sender logins (app passwords)
       emails/             one or more .txt / .csv lists of addresses to check
       success/            forwarding.csv + forwarding.txt (written by the program)
-      failed/             not_forwarding.csv (written by the program)
+      failed/             not_forwarding.csv + pending.csv (written by the program)
       data/               progress database, so runs can continue another day
 """
 
@@ -22,9 +22,9 @@ from .inputs import load_emails
 ACCOUNTS_FILE = "accounts.csv"
 ACCOUNTS_FIELDS = ("role", "email", "app_password", "smtp_host", "smtp_port", "imap_host")
 ACCOUNTS_TEMPLATE = (
-    "role,email,app_password,smtp_host,smtp_port,imap_host\n"
-    "master,your.master@gmail.com,abcd efgh ijkl mnop,,,\n"
-    "sender,a.different.account@gmail.com,abcd efgh ijkl mnop,,,\n"
+    "role,email,app_password\n"
+    "master,your.master@gmail.com,abcd efgh ijkl mnop\n"
+    "sender,a.different.account@gmail.com,abcd efgh ijkl mnop\n"
 )
 
 
@@ -65,10 +65,23 @@ def load_accounts(path: Path) -> dict[str, dict[str, str]]:
     return accounts
 
 
+def _clean_host(row: dict[str, str], column: str) -> None:
+    """Blank out values that can't be a server name (e.g. 'IMAP4rev1')."""
+    value = row.get(column, "")
+    if value and "." not in value:
+        print(f"  note: ignoring {column} '{value}' for {row.get('role')} in accounts.csv "
+              "(not a server name; leave it blank for Gmail)", file=sys.stderr)
+        row[column] = ""
+
+
 def apply_accounts(accounts: dict[str, dict[str, str]]) -> None:
     """Turn accounts.csv rows into the environment variables the rest of the app reads."""
     master = accounts.get("master")
     sender = accounts.get("sender")
+    for row in (master, sender):
+        if row:
+            _clean_host(row, "imap_host")
+            _clean_host(row, "smtp_host")
     if not master or not master.get("email") or not master.get("app_password"):
         raise ConfigError("accounts.csv needs a 'master' row with email and app_password")
     if not sender or not sender.get("email") or not sender.get("app_password"):
